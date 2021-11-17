@@ -1,46 +1,48 @@
-# load libraries
-library(dplyr) 
+# Load all files 
+features <- read.table("UCI HAR Dataset/features.txt", col.names = c("no", "feature"))
+labels <- read.table("UCI HAR Dataset/activity_labels.txt", col.names = c("number", "activity"))
+x_test <- read.table("UCI HAR Dataset/test/X_test.txt", col.names = features$feature)
+subject_test <- read.table("UCI HAR Dataset/test/subject_test.txt", col.names = "subject")
+y_test <- read.table("UCI HAR Dataset/test/y_test.txt", col.names = "number")
+x_train <- read.table("UCI HAR Dataset/train/X_train.txt", col.names = features$feature)
+subject_train <- read.table("UCI HAR Dataset/train/subject_train.txt", col.names = "subject")
+y_train <- read.table("UCI HAR Dataset/train/y_train.txt", col.names = "number")
+activities <- read.table("UCI HAR Dataset/activity_labels.txt", col.names = c("no", "activities"))
 
-# set dataset directory
-setwd("UCI HAR Dataset")
+# Combine all train datasets with their corresponding test dataset
+x_combined <- rbind(x_train, x_test)
+y_combined <- rbind(y_train, y_test)
+subject_combined <- rbind(subject_train, subject_test)
 
-#read activity labels
-activity_labels <- read.table("./activity_labels.txt")
+# Combine all of the different datasets together
+full_data_combined <- cbind(subject_combined, y_combined, x_combined)
+head(full_data_combined)
 
-# read train data 
-x_train   <- read.table("./train/X_train.txt")
-y_train   <- read.table("./train/y_train.txt") 
-sub_train <- read.table("./train/subject_train.txt")
+# Grab only mean & std measurements, along with subject & number columns
+mean_std_data <- full_data_combined[,grep("subject|number|std|mean", colnames(full_data_combined))]
 
-# read test data 
-x_test   <- read.table("./test/X_test.txt")
-y_test   <- read.table("./test/y_test.txt") 
-sub_test <- read.table("./test/subject_test.txt")
+# Use descriptive names for the activities, instead of a number 
+mean_std_data$number <- activities[mean_std_data$number, 2]
 
-# read features description 
-features <- read.table("./features.txt")
+# Update column names to be more descriptive
+names(mean_std_data)[1] = "Subject"
+names(mean_std_data)[2] = "Activity Performed"
+names(mean_std_data)<-gsub(".", " ", names(mean_std_data), fixed = TRUE)
+names(mean_std_data)<-gsub("bodybody", "Body", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("tbody", "Time Body", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("fbody", "Frequency Body", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("std", "Standard Deviation", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("mean", "Mean", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("acc", " Accelerometer", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("gyro", " Gyroscope", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("mag", " Magnitude", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("gravity", " Gravity", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("angle", " Angle", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("jerk", " Jerk", names(mean_std_data), ignore.case = TRUE)
+names(mean_std_data)<-gsub("t ", "Time ", names(mean_std_data), ignore.case = TRUE)
 
-# merge of training and test sets
-x_total   <- rbind(x_train, x_test)
-y_total   <- rbind(y_train, y_test) 
-sub_total <- rbind(sub_train, sub_test) 
+# Store clean dataset, with with the average of each variable for each activity and each subject in a file
+library(dplyr)
 
-# Extract only measurements on mean and standard deviation
-sel_features <- grep("(mean|std)", features[, 2])
-x_total      <- x_total[,sel_features]
-
-# Use descriptive activity names to name the activities in the data set.
-total_data_y <- as.data.frame(activity_labels[y_total[, 1], 2])
-colnames(total_data_y) <- "Activity"
-
-# Appropriately labels the data set with descriptive variable names.
-colnames(sub_total) <- "Subject"
-total_data <- cbind(x_total, total_data_y, sub_total)
-
-# From the data set above, create a second, independent tidy data set with the average of each variable for each activity and each subject.
-total_mean <- total %>% group_by(activity, subject) %>% summarize_all(list(mean)) 
-
-# export summary dataset
-write.table(groupData, file = "TidyData.txt", row.names = FALSE, quote = FALSE)
-
-
+clean_data <- mean_std_data %>% group_by(Subject, `Activity Performed`) %>% summarise_all(funs(mean))
+write.table(clean_data, "CleanData.txt", row.name=FALSE)
